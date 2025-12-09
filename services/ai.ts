@@ -17,8 +17,16 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 
 export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        throw new Error("Chave de API não configurada no ambiente.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const base64Data = await blobToBase64(audioBlob);
+    const mimeType = audioBlob.type || 'audio/webm';
+
+    console.log("Enviando áudio para IA:", { mimeType, size: audioBlob.size });
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -26,7 +34,7 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
         parts: [
           {
             inlineData: {
-              mimeType: audioBlob.type || 'audio/webm',
+              mimeType: mimeType,
               data: base64Data,
             },
           },
@@ -41,15 +49,24 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
     });
 
     return response.text || "";
-  } catch (error) {
-    console.error("Transcription error:", error);
-    throw new Error("Falha na transcrição do áudio.");
+  } catch (error: any) {
+    console.error("Transcription error detail:", error);
+    if (error.message?.includes("API_KEY")) {
+        throw error;
+    }
+    // Generic Gemini error often means format issue
+    throw new Error("Falha na transcrição. Verifique se o formato de áudio é compatível ou se a chave de API está válida.");
   }
 };
 
 export const summarizeText = async (text: string): Promise<string> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+         throw new Error("Chave de API não configurada.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

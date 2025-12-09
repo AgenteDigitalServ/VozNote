@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Mic, ArrowLeft, Save, Share2, FileText, Trash2, StopCircle, Loader2, Edit2, Tag, X, Sparkles } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { AppView, Note, ProcessingStatus, AudioRecording } from './types';
+import { AppView, Note, ProcessingStatus } from './types';
 import { transcribeAudio, summarizeText } from './services/ai';
 import { Button } from './components/Button';
 import { NoteCard } from './components/NoteCard';
@@ -62,13 +62,12 @@ const App: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>(ProcessingStatus.IDLE);
-  const [tempTranscription, setTempTranscription] = useState('');
-  const [tempSummary, setTempSummary] = useState('');
   
   // Refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+  const mimeTypeRef = useRef<string>(''); // Store the detected MIME type
 
   // Load notes on mount
   useEffect(() => {
@@ -93,12 +92,35 @@ const App: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // --- Helper: Detect Supported MIME Type ---
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/aac',
+      'audio/ogg'
+    ];
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return ''; // Let the browser choose default if none match
+  };
+
   // --- Actions ---
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      const mimeType = getSupportedMimeType();
+      mimeTypeRef.current = mimeType;
+
+      // Initialize MediaRecorder with the detected supported mimeType (if found)
+      const options = mimeType ? { mimeType } : undefined;
+      const mediaRecorder = new MediaRecorder(stream, options);
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -129,7 +151,7 @@ const App: React.FC = () => {
 
     } catch (err) {
       console.error("Error accessing microphone:", err);
-      alert("Erro ao acessar o microfone. Verifique as permissões.");
+      alert("Erro ao acessar o microfone. Verifique as permissões do navegador.");
     }
   };
 
@@ -144,7 +166,9 @@ const App: React.FC = () => {
       }
 
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        // Use the same MIME type used during recording creation to ensure Blob validity
+        const type = mimeTypeRef.current || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type });
         
         // Stop all tracks to release mic
         mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
@@ -157,12 +181,15 @@ const App: React.FC = () => {
   const processAudio = async (blob: Blob) => {
     setProcessingStatus(ProcessingStatus.TRANSCRIBING);
     try {
+      // Check if API key is present before starting
+      if (!process.env.API_KEY) {
+        throw new Error("API_KEY não encontrada. Verifique as configurações na Vercel.");
+      }
+
       const transcription = await transcribeAudio(blob);
-      setTempTranscription(transcription);
       
       setProcessingStatus(ProcessingStatus.SUMMARIZING);
       const summary = await summarizeText(transcription);
-      setTempSummary(summary);
       
       setProcessingStatus(ProcessingStatus.COMPLETED);
 
@@ -180,10 +207,14 @@ const App: React.FC = () => {
       setActiveNote(newNote);
       setView(AppView.EDIT);
       
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Process Audio Error:", error);
       setProcessingStatus(ProcessingStatus.ERROR);
-      alert("Ocorreu um erro ao processar o áudio. Tente novamente.");
+      
+      // More specific error message for the user
+      const msg = error?.message || "Ocorreu um erro desconhecido";
+      alert(`Erro no processamento: ${msg}\n\nTente gravar um áudio mais curto ou verifique sua conexão.`);
+      
       setView(AppView.LIST);
     } finally {
       setProcessingStatus(ProcessingStatus.IDLE);
