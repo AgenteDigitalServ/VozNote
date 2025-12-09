@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Mic, ArrowLeft, Save, Share2, FileText, Trash2, StopCircle, Loader2, Edit2, Tag, X, Sparkles } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { AppView, Note, ProcessingStatus, AudioRecording } from './types';
-import { transcribeAudio, summarizeText } from './services/geminiService';
+import { transcribeAudio, summarizeText } from './services/ai';
 import { Button } from './components/Button';
 import { NoteCard } from './components/NoteCard';
 
