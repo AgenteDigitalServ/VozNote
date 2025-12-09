@@ -1,7 +1,0 @@
-{
-  "name": "VozNote AI",
-  "description": "Gravador inteligente de reuniões com transcrição e resumo automático via IA.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
-}
