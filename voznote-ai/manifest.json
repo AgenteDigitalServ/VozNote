@@ -1,0 +1,18 @@
+
+{
+  "name": "VozNote AI - Gravador Inteligente",
+  "short_name": "VozNote AI",
+  "description": "Transcrição e resumo de reuniões via Inteligência Artificial",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3659/3659755.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

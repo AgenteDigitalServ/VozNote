@@ -17,12 +17,13 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API Key não configurada.");
+    if (!apiKey || apiKey === "undefined" || apiKey.includes("API_KEY")) {
+      throw new Error("API Key não configurada nas variáveis de ambiente da Vercel.");
+    }
 
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = await blobToBase64(audioBlob);
     
-    // Utilizamos o gemini-3-flash-preview para transcrição estável e rápida
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -40,17 +41,28 @@ export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
       },
     });
 
-    return response.text || "Não foi possível transcrever o áudio.";
+    if (!response.text) {
+       throw new Error("A IA não retornou nenhum texto. Tente novamente com um áudio mais curto.");
+    }
+
+    return response.text;
   } catch (error: any) {
-    console.error("Erro na transcrição:", error);
-    throw new Error(error.message || "Erro ao processar áudio.");
+    console.error("Erro detalhado na transcrição:", error);
+    // Erro amigável para o usuário
+    if (error.message?.includes("413") || error.message?.includes("too large")) {
+      throw new Error("O áudio é muito longo para ser processado de uma vez. Tente gravar em blocos menores.");
+    }
+    if (error.message?.includes("403") || error.message?.includes("API key")) {
+      throw new Error("Chave de API inválida ou bloqueada. Verifique suas configurações.");
+    }
+    throw new Error(error.message || "Erro de conexão ao processar áudio.");
   }
 };
 
 export const summarizeText = async (text: string): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) throw new Error("API Key não configurada.");
+    if (!apiKey) throw new Error("API Key ausente.");
 
     const ai = new GoogleGenAI({ apiKey });
 
@@ -75,6 +87,6 @@ export const summarizeText = async (text: string): Promise<string> => {
     return response.text || "Não foi possível gerar o resumo.";
   } catch (error: any) {
     console.error("Erro no resumo:", error);
-    throw new Error(error.message || "Erro ao gerar resumo.");
+    throw new Error("Erro ao gerar resumo inteligente.");
   }
 };

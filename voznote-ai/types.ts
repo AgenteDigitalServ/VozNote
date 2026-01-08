@@ -1,3 +1,4 @@
+
 export enum AppView {
   LIST = 'LIST',
   RECORD = 'RECORD',
@@ -12,6 +13,7 @@ export interface Note {
   transcription: string;
   summary: string;
   tags: string[];
+  audioUrl?: string; // URL temporária do blob de áudio
 }
 
 export enum ProcessingStatus {
@@ -20,10 +22,4 @@ export enum ProcessingStatus {
   SUMMARIZING = 'SUMMARIZING',
   COMPLETED = 'COMPLETED',
   ERROR = 'ERROR',
-}
-
-export interface AudioRecording {
-  blob: Blob;
-  url: string;
-  duration: number; // in seconds
 }

@@ -1,15 +1,33 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="VozNote AI" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3659/3659755.png" />
+    <link rel="manifest" href="manifest.json" />
     <title>VozNote AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      /* Mobile-friendly scrolling */
       body {
         overscroll-behavior-y: none;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
       }
+      input, textarea {
+        user-select: text;
+      }
+      /* Remove safe area gaps on mobile */
+      .safe-top { padding-top: env(safe-area-inset-top); }
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+      
+      /* Ocultar scrollbars para manter visual de App nativo */
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
   <script type="importmap">
 {
@@ -29,6 +47,21 @@
 </head>
   <body class="bg-slate-950 text-white h-screen w-screen overflow-hidden">
     <div id="root" class="h-full w-full"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+    <script type="module" src="index.tsx"></script>
+    <script>
+      // Registro de Service Worker com tratamento de erro para ambientes de preview
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .then(reg => console.log('VozNote AI: PWA Pronto'))
+            .catch(err => {
+              // Em ambientes de teste como AI Studio, o SW pode falhar por restrições de iframe.
+              // Isso não impede o funcionamento do App na web ou após instalado.
+              console.warn('Nota: PWA Offline desabilitado neste ambiente de teste.');
+            });
+        });
+      }
+    </script>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>
