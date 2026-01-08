@@ -1,12 +1,11 @@
+
 import { GoogleGenAI } from "@google/genai";
 
-// Helper to convert Blob to Base64
 const blobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64String = reader.result as string;
-      // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
       const base64Data = base64String.split(',')[1];
       resolve(base64Data);
     };
@@ -18,81 +17,76 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
 export const transcribeAudio = async (audioBlob: Blob): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        throw new Error("Chave de API não configurada no ambiente.");
+    if (!apiKey || apiKey === "undefined" || apiKey.includes("API_KEY")) {
+      throw new Error("API Key não configurada nas variáveis de ambiente da Vercel.");
     }
 
     const ai = new GoogleGenAI({ apiKey });
     const base64Data = await blobToBase64(audioBlob);
-    const mimeType = audioBlob.type || 'audio/webm';
-
-    console.log("Enviando áudio para IA:", { mimeType, size: audioBlob.size });
-
+    
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           {
             inlineData: {
-              mimeType: mimeType,
+              mimeType: audioBlob.type || 'audio/webm',
               data: base64Data,
             },
           },
           {
-            text: `Transcreva o áudio a seguir para Português do Brasil com precisão. 
-            Identifique diferentes falantes se houver (ex: Falante 1, Falante 2). 
-            Se houver pausas longas ou ruídos irrelevantes, ignore-os.
-            Formate o texto em parágrafos claros.`,
+            text: "Transcreva este áudio para Português do Brasil com precisão. Identifique falantes diferentes e utilize pontuação correta. Retorne apenas a transcrição do que foi falado.",
           },
         ],
       },
     });
 
-    return response.text || "";
-  } catch (error: any) {
-    console.error("Transcription error detail:", error);
-    if (error.message?.includes("API_KEY")) {
-        throw error;
+    if (!response.text) {
+       throw new Error("A IA não retornou nenhum texto. Tente novamente com um áudio mais curto.");
     }
-    // Generic Gemini error often means format issue
-    throw new Error("Falha na transcrição. Verifique se o formato de áudio é compatível ou se a chave de API está válida.");
+
+    return response.text;
+  } catch (error: any) {
+    console.error("Erro detalhado na transcrição:", error);
+    // Erro amigável para o usuário
+    if (error.message?.includes("413") || error.message?.includes("too large")) {
+      throw new Error("O áudio é muito longo para ser processado de uma vez. Tente gravar em blocos menores.");
+    }
+    if (error.message?.includes("403") || error.message?.includes("API key")) {
+      throw new Error("Chave de API inválida ou bloqueada. Verifique suas configurações.");
+    }
+    throw new Error(error.message || "Erro de conexão ao processar áudio.");
   }
 };
 
 export const summarizeText = async (text: string): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-         throw new Error("Chave de API não configurada.");
-    }
+    if (!apiKey) throw new Error("API Key ausente.");
 
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           {
-            text: `Você é um assistente executivo especialista em resumir reuniões.
-            Analise o seguinte texto transcrito (em Português do Brasil) e gere um resumo estruturado.
+            text: `Atue como um assistente executivo sênior. Resuma a seguinte transcrição de reunião em Português do Brasil de forma estruturada e profissional.
+            Estruture o resumo com:
+            - Título Descritivo
+            - Principais Tópicos (Bullet points)
+            - Decisões Tomadas
+            - Próximos Passos (Action Items)
             
-            O resumo deve conter:
-            1. Tópicos Principais discutidos.
-            2. Decisões tomadas (se houver).
-            3. Ações futuras (Action Items) (se houver).
-            
-            Mantenha a formatação limpa (Markdown).
-            
-            Texto:
-            ${text}`,
+            Transcrição: ${text}`,
           },
         ],
       },
     });
 
-    return response.text || "";
-  } catch (error) {
-    console.error("Summarization error:", error);
-    throw new Error("Falha ao gerar o resumo.");
+    return response.text || "Não foi possível gerar o resumo.";
+  } catch (error: any) {
+    console.error("Erro no resumo:", error);
+    throw new Error("Erro ao gerar resumo inteligente.");
   }
 };
